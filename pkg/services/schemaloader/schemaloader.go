@@ -3,6 +3,7 @@ package schemaloader
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 
 	"github.com/grafana/grafana/pkg/components/simplejson"
 	"github.com/grafana/grafana/pkg/schema"
@@ -35,7 +36,20 @@ type SchemaLoaderService struct {
 }
 
 func (rs *SchemaLoaderService) LoadNewPanelPluginSchema(name, content string) error {
-	if err := rs.baseLoadPath.InstanceCueFS.(*InstanceFS).WriteFile(name, content); err != nil {
+	cueFile := filepath.Join(rs.Cfg.PluginsPath, name+".cue")
+	rs.log.Info("Write file into virtual file system", "file", cueFile)
+	if err := rs.baseLoadPath.InstanceCueFS.(*InstanceFS).WriteFile(cueFile, content); err != nil {
+		rs.log.Debug("Write file into virtual file system failed", "file", cueFile)
+		return err
+	}
+	return nil
+}
+
+func (rs *SchemaLoaderService) RemovePanelPluginSchema(name string) error {
+	cueFile := filepath.Join(rs.Cfg.PluginsPath, name+".cue")
+	rs.log.Info("Delete file from virtual file system", "file", cueFile)
+	if err := rs.baseLoadPath.InstanceCueFS.(*InstanceFS).DeleteFile(cueFile); err != nil {
+		rs.log.Debug("Delete file from virtual file system failed", "file", cueFile)
 		return err
 	}
 	return nil

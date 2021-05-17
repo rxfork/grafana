@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -35,7 +36,7 @@ func (d *dir) Close() error {
 	return nil
 }
 
-// ReadDir 实现 fs.ReadDirFile 接口，方便遍历目录
+// ReadDir implement fs.ReadDirFile interface
 func (d *dir) ReadDir(n int) ([]fs.DirEntry, error) {
 	names := make([]string, 0, len(d.children))
 	for name := range d.children {
@@ -193,7 +194,7 @@ func (fsys *InstanceFS) Open(name string) (fs.File, error) {
 
 	// search with the name - parse dir and file name
 	cur := fsys.rootDir
-	parts := strings.Split(name, "/")
+	parts := strings.Split(name, string(os.PathSeparator))
 	for i, part := range parts {
 		// return error if not exists
 		child := cur.children[part]
@@ -247,7 +248,7 @@ func (fsys *InstanceFS) MkdirAll(path string) error {
 	}
 
 	cur := fsys.rootDir
-	parts := strings.Split(path, "/")
+	parts := strings.Split(path, string(os.PathSeparator))
 	for _, part := range parts {
 		child := cur.children[part]
 		if child == nil {
@@ -263,7 +264,6 @@ func (fsys *InstanceFS) MkdirAll(path string) error {
 			if !ok {
 				return fmt.Errorf("%s is not directory", part)
 			}
-
 			cur = childDir
 		}
 	}
@@ -281,17 +281,10 @@ func (fsys *InstanceFS) WriteFile(name, content string) error {
 		}
 	}
 
-	var err error
-	dir := fsys.rootDir
-
-	path := filepath.Dir(name)
-	if path != "." {
-		dir, err = fsys.getDir(path)
-		if err != nil {
-			return err
-		}
+	dir, filename, err := fsys.getDirAndFileName(name)
+	if err != nil {
+		return err
 	}
-	filename := filepath.Base(name)
 
 	dir.children[filename] = &file{
 		name:    filename,
@@ -302,9 +295,45 @@ func (fsys *InstanceFS) WriteFile(name, content string) error {
 	return nil
 }
 
+func (fsys *InstanceFS) getDirAndFileName(name string) (*dir, string, error) {
+	var err error
+	dir := fsys.rootDir
+
+	path := filepath.Dir(name)
+	if path != "." {
+		dir, err = fsys.getDir(path)
+		if err != nil {
+			return nil, "", err
+		}
+	}
+	filename := filepath.Base(name)
+
+	return dir, filename, nil
+}
+
+// DeleteFile is not required, it is used to delete file from virtual file system
+func (fsys *InstanceFS) DeleteFile(name string) error {
+	if !fs.ValidPath(name) {
+		return &fs.PathError{
+			Op:   "delete",
+			Path: name,
+			Err:  fs.ErrInvalid,
+		}
+	}
+	dir, filename, err := fsys.getDirAndFileName(name)
+	if err != nil {
+		return err
+	}
+	_, ok := dir.children[filename]
+	if ok {
+		delete(dir.children, filename)
+	}
+	return nil
+}
+
 // getDir to get dir through path
 func (fsys *InstanceFS) getDir(path string) (*dir, error) {
-	parts := strings.Split(path, "/")
+	parts := strings.Split(path, string(os.PathSeparator))
 
 	cur := fsys.rootDir
 	for _, part := range parts {
