@@ -54,7 +54,9 @@ func AddDashAlertMigration(mg *migrator.Migrator) {
 			if err != nil {
 				mg.Logger.Error("alert migration error: could not clear alert migration for removing data", "error", err)
 			}
-			mg.AddMigration(migTitle, &migration{})
+			mg.AddMigration(migTitle, &migration{
+				seenChannelUIDs: make(map[string]struct{}),
+			})
 		case !ngEnabled && migrationRun:
 			err = mg.ClearMigrationEntry(migTitle)
 			if err != nil {
@@ -70,6 +72,8 @@ type migration struct {
 	// session and mg are attached for convenience.
 	sess *xorm.Session
 	mg   *migrator.Migrator
+
+	seenChannelUIDs map[string]struct{}
 }
 
 func (m *migration) SQL(dialect migrator.Dialect) string {
@@ -107,7 +111,7 @@ func (m *migration) Exec(sess *xorm.Session, mg *migrator.Migrator) error {
 
 	if defaultChannel != nil {
 		// Migration for the default route.
-		recv, route, err := m.makeReceiverAndRoute("default_route", []string{defaultChannel.Name}, allChannels)
+		recv, route, err := m.makeReceiverAndRoute("default_route", []interface{}{defaultChannel.Name}, allChannels)
 		if err != nil {
 			return err
 		}
