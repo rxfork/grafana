@@ -8,26 +8,17 @@ import { PLUGIN_ID } from '../constants';
 interface Props extends PluginConfigPageProps<AppPluginMeta<CatalogAppSettings>> {}
 
 export const Settings = ({ plugin }: Props) => {
-  const [state, setState] = useState({
-    enabled: plugin.meta.enabled,
-    includeEnterprise: plugin.meta.jsonData?.includeEnterprise,
-  });
+  const [meta, setMeta] = useState(plugin.meta);
+  const [state, setState] = useState<CatalogAppSettings>(meta.jsonData ?? {});
+
+  const { pinned, enabled } = meta;
+  const { includeEnterprise } = state;
 
   const onSave = () => {
-    const payload = {
-      pinned: state.enabled,
-      enabled: state.enabled,
-      jsonData: {
-        includeEnterprise: state.includeEnterprise,
-      },
-    };
-    updateAndReload(PLUGIN_ID, payload);
-  };
-
-  const onChange = (ev: React.ChangeEvent<HTMLInputElement>) => {
-    setState({
-      ...state,
-      [ev.currentTarget.name]: ev.currentTarget.checked,
+    updateAndReload(PLUGIN_ID, {
+      pinned,
+      enabled,
+      jsonData: state,
     });
   };
 
@@ -35,13 +26,32 @@ export const Settings = ({ plugin }: Props) => {
     <>
       <Legend>General</Legend>
       <Field label="Enable app">
-        <Switch value={state.enabled} name="enabled" onChange={onChange} />
+        <Switch
+          value={enabled}
+          onChange={(e) => {
+            setMeta({ ...meta, enabled: e.currentTarget.checked });
+          }}
+        />
       </Field>
+      <Field label="Pin app" description="Add the app to the side menu.">
+        <Switch
+          value={pinned}
+          onChange={(e) => {
+            setMeta({ ...meta, pinned: e.currentTarget.checked });
+          }}
+        />
+      </Field>
+      <Legend>Plugins</Legend>
       <Field
         label="Show Enterprise plugins"
         description="Enterprise plugins require a Grafana Enterprise subscription."
       >
-        <Switch value={state.includeEnterprise} name="includeEnterprise" onChange={onChange} />
+        <Switch
+          value={includeEnterprise}
+          onChange={(e) => {
+            setState({ ...state, includeEnterprise: e.currentTarget.checked });
+          }}
+        />
       </Field>
       <Button onClick={onSave}>Save</Button>
     </>
