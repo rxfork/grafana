@@ -15,13 +15,20 @@ export const usePlugins = (includeEnterprise = false) => {
   useEffect(() => {
     const fetchPluginData = async () => {
       const items = await api.getRemotePlugins();
-      const filteredItems = items
-        .filter((plugin) => Boolean(plugin.versionSignatureType))
-        .filter((plugin) => includeEnterprise || plugin.status !== 'enterprise')
-        .filter((plugin) => !status || plugin.status === status);
+      const filteredPlugins = items.filter((plugin) => {
+        const isNotRenderer = plugin.typeCode !== 'renderer';
+        const isSigned = Boolean(plugin.versionSignatureType);
+        const isNotEnterprise = plugin.status !== 'enterprise';
+
+        if (includeEnterprise) {
+          return isNotRenderer && isSigned;
+        }
+
+        return isNotRenderer && isSigned && isNotEnterprise;
+      });
       const installedPlugins = await api.getInstalledPlugins();
 
-      setState((state) => ({ ...state, items: filteredItems, installedPlugins, isLoading: false }));
+      setState((state) => ({ ...state, items: filteredPlugins, installedPlugins, isLoading: false }));
     };
 
     fetchPluginData();
